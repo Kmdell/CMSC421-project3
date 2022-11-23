@@ -12,6 +12,8 @@ static ssize_t ins_read(struct file *file, char __user *buf, size_t count, loff_
 static int __init inspiration_init(void);
 static void __exit inspiration_exit(void);
 
+int temp = 0;
+
 dev_t dev = 0;
 static const struct file_operations ins_fops = {
     .owner = THIS_MODULE,
@@ -54,31 +56,40 @@ static const int quoteLen[] = {
 static ssize_t ins_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
     int index = 0;
     int i = 0;
-    if (*ppos > 0) {
+     
+    /* Check to see if temp has been incremented if it has then we set it to zero*/
+    if (temp > 0) {
+        temp = 0;
         return 0;
     }
+    /* Get random bytes to choose a random message*/
     get_random_bytes(&index, sizeof(index));
     if (index < 0) {
         index *= -1;
     }
     index = index % 10;
 
+    /* Print the info about what was chosen to dmesg*/
     printk(KERN_INFO "Index of the randomly selected message: %d\n", index);
     printk(KERN_INFO "The message selected: %s", quotes[index]);
     printk(KERN_INFO "The length of the message: %d\n", quoteLen[index]);
     
+    /* Check permission and accessibility of the buffer*/
     if (!access_ok(buf, count)) {
         return -EFAULT;
     }
 
+    /* Write the quote to the user space buffer*/
     for (i = 0; i < quoteLen[index]; i++) {
         if(put_user(quotes[index][i], buf + i)) {
             return -EFAULT;
         }
     }
 
-    *ppos += quoteLen;
+    /* Increment temp so that we know we only ran it once*/
+    temp++;
 
+    /* Return the length of the string*/
     return quoteLen[index];
 }
 
