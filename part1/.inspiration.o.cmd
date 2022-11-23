@@ -667,8 +667,6 @@ deps_/usr/src/project3/part1/inspiration.o := \
     $(wildcard include/config/MODULES_USE_ELF_REL) \
     $(wildcard include/config/MODULES_USE_ELF_RELA) \
   arch/x86/include/asm/orc_types.h \
-  include/linux/kdev_t.h \
-  include/uapi/linux/kdev_t.h \
   include/linux/fs.h \
     $(wildcard include/config/READ_ONLY_THP_FOR_FS) \
     $(wildcard include/config/FS_POSIX_ACL) \
@@ -686,6 +684,8 @@ deps_/usr/src/project3/part1/inspiration.o := \
     $(wildcard include/config/BLOCK) \
     $(wildcard include/config/MIGRATION) \
   include/linux/wait_bit.h \
+  include/linux/kdev_t.h \
+  include/uapi/linux/kdev_t.h \
   include/linux/dcache.h \
   include/linux/rculist.h \
     $(wildcard include/config/PROVE_RCU_LIST) \
@@ -891,6 +891,8 @@ deps_/usr/src/project3/part1/inspiration.o := \
   include/linux/projid.h \
   include/uapi/linux/quota.h \
   include/linux/nfs_fs_i.h \
+  include/linux/miscdevice.h \
+  include/uapi/linux/major.h \
   include/linux/device.h \
     $(wildcard include/config/ENERGY_MODEL) \
     $(wildcard include/config/GENERIC_MSI_IRQ_DOMAIN) \
@@ -931,6 +933,16 @@ deps_/usr/src/project3/part1/inspiration.o := \
   include/linux/device/driver.h \
   arch/x86/include/asm/device.h \
   include/linux/pm_wakeup.h \
+  include/linux/random.h \
+    $(wildcard include/config/ARCH_RANDOM) \
+  include/linux/once.h \
+  include/uapi/linux/random.h \
+  include/linux/irqnr.h \
+  include/uapi/linux/irqnr.h \
+  include/linux/prandom.h \
+  include/linux/siphash.h \
+    $(wildcard include/config/HAVE_EFFICIENT_UNALIGNED_ACCESS) \
+  arch/x86/include/asm/archrandom.h \
 
 /usr/src/project3/part1/inspiration.o: $(deps_/usr/src/project3/part1/inspiration.o)
 
