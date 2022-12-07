@@ -4,6 +4,8 @@
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
+#include <linux/string.h>
+#include <linux/random.h>
 
 MODULE_LICENSE("GPL");
 
@@ -27,6 +29,7 @@ const char *INVFAU = "EFAULT\n";
 const int INVLENGTH = 7;
 
 bool read = false;
+bool write = false;
 bool game_started = false;
 
 static char *board[] = {
@@ -39,12 +42,17 @@ static char *board[] = {
     "00000000\n",
     "00000000\n"
 };
+char player = ' ';
 
-char input[8];
 char *output = "";
+int outputLength = 0;
 
 static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff_t *ppos);
 static ssize_t four_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos);
+static void resetBoard(void);
+static void computerTurn(char marker);
+static void dropPiece(char column);
+static void checkWinCondition(void);
 static int __init fourinarow_init(void);
 static void __exit fourinarow_exit(void);
 
@@ -61,9 +69,47 @@ static struct miscdevice four_dev = {
     .mode = 0666,
 };
 
+static void resetBoard() {
+    int ii = 0, jj = 0;
+    for (ii = 0; ii < 8; ii++) {
+        for (jj = 0; jj < 8; jj++) {
+            board[ii][jj] = 0;
+        }
+    }
+    if (player == 'R') {
+        computerTurn('Y');
+    }
+}
+
+static void computerTurn(char marker) {
+    int index = 0;
+    int ii = 0;
+
+    /* get random placement for computer marker*/
+    get_random_bytes(&index, sizeof(index));
+    if (index < 0) {
+        index *= -1;
+    }
+    index %= 8;
+
+    /* try to put it in that row if not available then try again until you can find something*/
+    while (ii < 8) {
+        if (board[index][ii] != '0') {
+            get_random_bytes(&index, sizeof(index));
+            if (index < 0) {
+                index *= -1;
+            }
+            index %= 8;
+            ii++;
+        } else {
+            board[index][ii] = marker;
+        }
+    }
+}
+
 static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
     int ii = 0;
-    int length = 0;
+    printk(KERN_ALERT "Initialized the variables\n");
     
     /* If the read variable is set to true then that means this was already run and finish its*/
     if (read == true) {
@@ -71,45 +117,53 @@ static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff
         return 0;
     }
 
+    printk(KERN_ALERT "Checked read\n");
+
     /* Checks that the buffer is accessible*/
     if (!access_ok(buf, count)) {
+        printk(KERN_ERR "Could not access buffer for the reading\n");
         return -EFAULT;
-    }return count;
-
-    /* Change length depending on output*/
-    if (OK == output) {
-        length = OKLENGTH;
-    } else if (INVCMD == output) {
-        length = INVLENGTH;
     }
 
+    printk(KERN_ALERT "Checked pointer access\n");
+
     /* Put the ouput into the buffer*/
-    for (ii = 0; ii < length; ii++) {
+    for (ii = 0; ii < outputLength; ii++) {
         if (put_user(output[ii], buf + ii)) {
+            printk(KERN_ERR "Failed to write to the read buffer\n");
             return -EFAULT;
         }
     }
 
+    printk(KERN_ALERT "Wrote out to the console\n");
+
     /* Set to true so that we can stop the output*/
     read = true;
-
-    return length;
+    return outputLength;
 }
 
 static ssize_t four_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
     int ii = 0;
     char input[9];
+    /* Handle newline*/
+    printk("Count: %ld", count);
+    if (write == true && count == 1) {
+        write = false;
+        return count;
+    }
         
     /* Simple check for length of the command entered*/
-    if (count > 8) {
+    if (count > 8 || count < 6) {
         printk(KERN_ERR "Invalid length\n");
         output = (char *)INVCMD;
+        outputLength = INVLENGTH;
         return count;
     }
 
     /* Check to see if user pointer is valid*/
     if (!access_ok(buf, count)) {
         output = (char *)INVFAU;
+        outputLength = INVLENGTH;
         return count;
     }
 
@@ -117,14 +171,69 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
     for (ii = 0; ii < count; ii++) {
         if (get_user(input[ii], buf + ii)) {
             output = (char *)INVFAU;
+            outputLength = INVLENGTH;
             return count;
         }
     }
-    input[ii + 1] = '\0';
+
+    if (strncmp(input, "RESET", 5)) {
+        if (input[5] == ' ') {
+            if (input[6] == 'Y' || input[6] == 'R') {
+                player = input[6];
+                resetBoard();
+                return count;
+            } else {
+                output = (char *)INVARG;
+                outputLength = INVLENGTH;
+                return count;
+            }
+        } else {
+            output = (char *)INVCMD;
+            outputLength = INVLENGTH;
+            return count;
+        }
+    }
+
+    if (strncmp(input, "BOARD\n", 6)) {
+        output = *board;
+        return count;
+    }
+
+    if (strncmp(input, "DROPC", 5)) {
+        if (input[5] == ' ') {
+            if (input[6] <= 'A' || input[6] >= 'H') {
+                dropPiece(input[6]);
+                checkWinCondition();
+                return count;
+            } else {
+                output = (char *)INVARG;
+                outputLength = INVLENGTH;
+                return count;
+            }
+        } else {
+            output = (char *)INVCMD;
+            outputLength = INVLENGTH;
+            return count;
+        }
+    }
+
+    if (strncmp(input, "CTURN\n", 6)) {
+        if (player == 'R') {
+
+        } else {
+
+        }
+    }
+    
+
+    /* set write to true so that we know we grabbed a command*/
+    write = true;
+    input[ii] = '\0';
 
     printk(KERN_INFO "Input string: %s", input);
 
     output = (char *)OK;
+    outputLength = OKLENGTH;
     return count;
 }
 
@@ -135,6 +244,7 @@ static int __init fourinarow_init(void) {
     }
 
     read = false;
+    write = false;
     game_started = false;
 
     printk(KERN_ALERT "Started the Four in a Row Machine\n");

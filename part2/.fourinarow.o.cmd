@@ -933,6 +933,16 @@ deps_/usr/src/project3/part2/fourinarow.o := \
   include/linux/device/driver.h \
   arch/x86/include/asm/device.h \
   include/linux/pm_wakeup.h \
+  include/linux/random.h \
+    $(wildcard include/config/ARCH_RANDOM) \
+  include/linux/once.h \
+  include/uapi/linux/random.h \
+  include/linux/irqnr.h \
+  include/uapi/linux/irqnr.h \
+  include/linux/prandom.h \
+  include/linux/siphash.h \
+    $(wildcard include/config/HAVE_EFFICIENT_UNALIGNED_ACCESS) \
+  arch/x86/include/asm/archrandom.h \
 
 /usr/src/project3/part2/fourinarow.o: $(deps_/usr/src/project3/part2/fourinarow.o)
 
