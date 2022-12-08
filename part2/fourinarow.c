@@ -12,8 +12,8 @@ MODULE_LICENSE("GPL");
 /* The constants of strings that we want to be able to edit*/
 const char *OK = "OK\n";
 const int OKLENGTH = 3;
-const char *TURN = "OOT\n";
-const int TURNLENGTH = 4;
+const char *OOT = "OOT\n";
+const int OOTLENGTH = 4;
 const char *NOGAME = "NOGAME\n";
 const int NOGAMELENGTH = 7;
 const char *WIN = "WIN\n";
@@ -30,7 +30,7 @@ const int INVLENGTH = 7;
 
 bool read = false;
 bool write = false;
-bool game_started = false;
+bool gameStarted = false;
 
 static char *board[] = {
     "00000000\n",
@@ -71,6 +71,7 @@ static struct miscdevice four_dev = {
 
 static void resetBoard() {
     int ii = 0, jj = 0;
+    gameStarted = true;
     for (ii = 0; ii < 8; ii++) {
         for (jj = 0; jj < 8; jj++) {
             board[ii][jj] = 0;
@@ -103,8 +104,38 @@ static void computerTurn(char marker) {
             ii++;
         } else {
             board[index][ii] = marker;
+            ii = 8;
         }
     }
+}
+
+static void dropPiece(char col) {
+    int ii = 0;
+    int column = (int)(col - 'A');
+
+    /* sets output to invalid column if nothing is found*/
+    output = (char *)INVCOL;
+    outputLength = INVLENGTH;
+
+    /* check to see if the */
+    while (ii < 8) {
+        if (board[column][ii] != '0') {
+            ii++;
+        } else {
+            /* if a place is found we drop the piece*/
+            if (player == 'R') {
+                board[column][ii] = 'Y';
+            } else {
+                board[column][ii] = 'R';
+            }
+            output = (char*)OK;
+            outputLength = OKLENGTH;
+        }
+    }
+}
+
+static void checkWinCondition() {
+    printk(KERN_INFO "Checking win condition");
 }
 
 static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
@@ -176,6 +207,11 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         }
     }
 
+    /* set write to true so that we know we grabbed a command*/
+    write = true;
+    input[ii] = '\0';
+
+    /* check for the reset command*/
     if (strncmp(input, "RESET", 5)) {
         if (input[5] == ' ') {
             if (input[6] == 'Y' || input[6] == 'R') {
@@ -194,14 +230,21 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         }
     }
 
+    /* check for the board command*/
     if (strncmp(input, "BOARD\n", 6)) {
         output = *board;
         return count;
     }
 
+    /* check for the drop piece command*/
     if (strncmp(input, "DROPC", 5)) {
         if (input[5] == ' ') {
             if (input[6] <= 'A' || input[6] >= 'H') {
+                if (gameStarted == false) {
+                    output = (char *)NOGAME;
+                    outputLength = NOGAMELENGTH;
+                    return count;
+                }
                 dropPiece(input[6]);
                 checkWinCondition();
                 return count;
@@ -217,18 +260,20 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         }
     }
 
+    /* check the computer turn command*/
     if (strncmp(input, "CTURN\n", 6)) {
-        if (player == 'R') {
-
-        } else {
-
+        if (gameStarted == false) {
+            output = (char *)NOGAME;
+            outputLength = NOGAMELENGTH;
+            return count;
         }
+        if (player == 'R') {
+            computerTurn('Y');
+        } else {
+            computerTurn('R');
+        }
+        checkWinCondition();
     }
-    
-
-    /* set write to true so that we know we grabbed a command*/
-    write = true;
-    input[ii] = '\0';
 
     printk(KERN_INFO "Input string: %s", input);
 
@@ -245,7 +290,7 @@ static int __init fourinarow_init(void) {
 
     read = false;
     write = false;
-    game_started = false;
+    gameStarted = false;
 
     printk(KERN_ALERT "Started the Four in a Row Machine\n");
     return 0;
