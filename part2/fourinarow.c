@@ -31,8 +31,9 @@ const int INVLENGTH = 7;
 bool read = false;
 bool write = false;
 bool gameStarted = false;
+bool playerTurn = true;
 
-static char *board[] = {
+char *gameBoard[] = {
     "00000000\n",
     "00000000\n",
     "00000000\n",
@@ -71,40 +72,43 @@ static struct miscdevice four_dev = {
 
 static void resetBoard() {
     int ii = 0, jj = 0;
-    gameStarted = true;
+    printk(KERN_ALERT "Reseting the Game gameBoard\n");
     for (ii = 0; ii < 8; ii++) {
         for (jj = 0; jj < 8; jj++) {
-            board[ii][jj] = 0;
+            printk(KERN_INFO "ii: %d and jj: %d and char: %c", ii, jj, gameBoard[ii][jj]);
+            gameBoard[ii][jj] = (char)'0';
         }
     }
+    gameStarted = true;
+    printk(KERN_INFO "Made it past the reseting\n");
     if (player == 'R') {
         computerTurn('Y');
     }
+    output = (char *)OK;
+    outputLength = OKLENGTH;
 }
 
 static void computerTurn(char marker) {
     int index = 0;
-    int ii = 0;
+    bool placed = false;
 
-    /* get random placement for computer marker*/
-    get_random_bytes(&index, sizeof(index));
-    if (index < 0) {
-        index *= -1;
-    }
-    index %= 8;
+    printk(KERN_ALERT "Computer taking its turn\n");
 
-    /* try to put it in that row if not available then try again until you can find something*/
-    while (ii < 8) {
-        if (board[index][ii] != '0') {
-            get_random_bytes(&index, sizeof(index));
-            if (index < 0) {
-                index *= -1;
-            }
-            index %= 8;
-            ii++;
-        } else {
-            board[index][ii] = marker;
-            ii = 8;
+    while (placed == false) {
+        /* get random placement for computer marker*/
+        get_random_bytes(&index, sizeof(index));
+
+        if (index < 0) {
+            index *= -1;
+        }
+        
+        index %= 8;
+
+        /* try to put it in that row if not available then try again until you can find something*/
+        dropPiece((char)('A' + index));
+
+        if (output == OK) {
+            placed = true;
         }
     }
 }
@@ -119,18 +123,20 @@ static void dropPiece(char col) {
 
     /* check to see if the */
     while (ii < 8) {
-        if (board[column][ii] != '0') {
-            ii++;
-        } else {
+        if (gameBoard[column][ii] == '0') {
             /* if a place is found we drop the piece*/
             if (player == 'R') {
-                board[column][ii] = 'Y';
+                gameBoard[column][ii] = (playerTurn ? 'R' : 'Y');
             } else {
-                board[column][ii] = 'R';
+                gameBoard[column][ii] = (playerTurn ? 'Y' : 'R');
             }
+            ii = 8;
+            playerTurn = !playerTurn;
             output = (char*)OK;
             outputLength = OKLENGTH;
         }
+
+        ii++;
     }
 }
 
@@ -139,8 +145,8 @@ static void checkWinCondition() {
 }
 
 static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
-    int ii = 0;
-    printk(KERN_ALERT "Initialized the variables\n");
+    int ii = 0, jj = 0, index = 0;
+    char outputbuf[72];
     
     /* If the read variable is set to true then that means this was already run and finish its*/
     if (read == true) {
@@ -148,25 +154,36 @@ static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff
         return 0;
     }
 
-    printk(KERN_ALERT "Checked read\n");
-
     /* Checks that the buffer is accessible*/
-    if (!access_ok(buf, count)) {
+    if (!access_ok(buf, outputLength)) {
         printk(KERN_ERR "Could not access buffer for the reading\n");
         return -EFAULT;
     }
 
-    printk(KERN_ALERT "Checked pointer access\n");
+    if (output == *gameBoard) {
+        for (ii = 0; ii < 8; ii++) {
+            for (jj = 0; jj < 9; jj++) {
+                outputbuf[index] = gameBoard[ii][jj];
+                index++;
+            }
+        }
 
-    /* Put the ouput into the buffer*/
-    for (ii = 0; ii < outputLength; ii++) {
-        if (put_user(output[ii], buf + ii)) {
-            printk(KERN_ERR "Failed to write to the read buffer\n");
-            return -EFAULT;
+        /* Put the ouput into the buffer*/
+        for (ii = 0; ii < outputLength; ii++) {
+            if (put_user(outputbuf[ii], buf + ii)) {
+                printk(KERN_ERR "Failed to write to the read buffer\n");
+                return -EFAULT;
+            }
+        }
+    } else {
+        /* Put the ouput into the buffer*/
+        for (ii = 0; ii < outputLength; ii++) {
+            if (put_user(output[ii], buf + ii)) {
+                printk(KERN_ERR "Failed to write to the read buffer\n");
+                return -EFAULT;
+            }
         }
     }
-
-    printk(KERN_ALERT "Wrote out to the console\n");
 
     /* Set to true so that we can stop the output*/
     read = true;
@@ -177,8 +194,9 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
     int ii = 0;
     char input[9];
     /* Handle newline*/
-    printk("Count: %ld", count);
+    printk("Count: %ld\n", count);
     if (write == true && count == 1) {
+        printk(KERN_INFO "Handled the newline\n");
         write = false;
         return count;
     }
@@ -193,6 +211,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
 
     /* Check to see if user pointer is valid*/
     if (!access_ok(buf, count)) {
+        printk(KERN_ERR "FAILED to access buffer\n");
         output = (char *)INVFAU;
         outputLength = INVLENGTH;
         return count;
@@ -201,6 +220,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
     /* Put the ouput into the buffer*/
     for (ii = 0; ii < count; ii++) {
         if (get_user(input[ii], buf + ii)) {
+            printk(KERN_ERR "FAILED to read the the data from the userspace pointer\n");
             output = (char *)INVFAU;
             outputLength = INVLENGTH;
             return count;
@@ -211,62 +231,76 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
     write = true;
     input[ii] = '\0';
 
+    printk(KERN_INFO "Input string: %s", input);
+
     /* check for the reset command*/
-    if (strncmp(input, "RESET", 5)) {
-        if (input[5] == ' ') {
-            if (input[6] == 'Y' || input[6] == 'R') {
-                player = input[6];
-                resetBoard();
-                return count;
-            } else {
-                output = (char *)INVARG;
-                outputLength = INVLENGTH;
-                return count;
-            }
-        } else {
+    if (strncmp(input, "RESET", 5) == 0) {
+        if (input[5] != ' ') {
+            printk(KERN_ERR "Invalid command\n");
             output = (char *)INVCMD;
             outputLength = INVLENGTH;
             return count;
         }
+
+        if (input[6] != 'Y' && input[6] != 'R') {
+            printk(KERN_ERR "Invalid argument for RESET\n");
+            output = (char *)INVARG;
+            outputLength = INVLENGTH;
+            return count;
+        }
+
+        printk(KERN_INFO "RESET command given\n");
+        player = input[6];
+        resetBoard();
+        return count;
     }
 
-    /* check for the board command*/
-    if (strncmp(input, "BOARD\n", 6)) {
-        output = *board;
+    /* check for the gameBoard command*/
+    if (strncmp(input, "gameBOARD\n", 6) == 0) {
+        printk(KERN_INFO "gameBOARD command given\n");
+        output = *gameBoard;
+        outputLength = 72;
         return count;
     }
 
     /* check for the drop piece command*/
-    if (strncmp(input, "DROPC", 5)) {
-        if (input[5] == ' ') {
-            if (input[6] <= 'A' || input[6] >= 'H') {
-                if (gameStarted == false) {
-                    output = (char *)NOGAME;
-                    outputLength = NOGAMELENGTH;
-                    return count;
-                }
-                dropPiece(input[6]);
-                checkWinCondition();
-                return count;
-            } else {
-                output = (char *)INVARG;
-                outputLength = INVLENGTH;
-                return count;
-            }
-        } else {
+    if (strncmp(input, "DROPC", 5) == 0) {
+        if (input[5] != ' ') {
+            printk(KERN_ERR "Invalid command given\n");
             output = (char *)INVCMD;
             outputLength = INVLENGTH;
             return count;
         }
-    }
 
-    /* check the computer turn command*/
-    if (strncmp(input, "CTURN\n", 6)) {
+        if (input[6] <= 'A' || input[6] >= 'H') {
+            printk(KERN_ERR "Invalid argument given for DROPC\n");
+            output = (char *)INVARG;
+            outputLength = INVLENGTH;
+            return count;
+        }
+
         if (gameStarted == false) {
+            printk(KERN_ERR "No game is in progress\n");
             output = (char *)NOGAME;
             outputLength = NOGAMELENGTH;
             return count;
         }
+
+        printk(KERN_INFO "DROPC command was given\n");
+        dropPiece(input[6]);
+        checkWinCondition();
+        return count;
+    }
+
+    /* check the computer turn command*/
+    if (strncmp(input, "CTURN\n", 6) == 0) {
+        if (gameStarted == false) {
+            printk(KERN_ERR "No game is in progress\n");
+            output = (char *)NOGAME;
+            outputLength = NOGAMELENGTH;
+            return count;
+        }
+        printk(KERN_INFO "Computer takes turn\n");
         if (player == 'R') {
             computerTurn('Y');
         } else {
@@ -275,10 +309,8 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         checkWinCondition();
     }
 
-    printk(KERN_INFO "Input string: %s", input);
-
-    output = (char *)OK;
-    outputLength = OKLENGTH;
+    output = (char *)INVCMD;
+    outputLength = INVLENGTH;
     return count;
 }
 

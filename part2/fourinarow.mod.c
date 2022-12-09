@@ -30,13 +30,13 @@ __used __section("__versions") = {
 	{ 0x798ab62f, "module_layout" },
 	{ 0x78b6a7eb, "misc_deregister" },
 	{ 0x3cefa1ce, "misc_register" },
-	{ 0xc3aaf0a9, "__put_user_1" },
 	{ 0x5a921311, "strncmp" },
 	{ 0x167e7f9d, "__get_user_1" },
-	{ 0x92997ed8, "_printk" },
-	{ 0x5b8239ca, "__x86_return_thunk" },
+	{ 0xc3aaf0a9, "__put_user_1" },
 	{ 0xd0da656b, "__stack_chk_fail" },
 	{ 0x41ed3709, "get_random_bytes" },
+	{ 0x92997ed8, "_printk" },
+	{ 0x5b8239ca, "__x86_return_thunk" },
 	{ 0xbdfb6dbb, "__fentry__" },
 };
 
