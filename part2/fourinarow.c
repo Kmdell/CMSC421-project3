@@ -74,6 +74,7 @@ static struct miscdevice four_dev = {
 static void resetBoard() {
     int ii = 0, jj = 0;
 
+    /* Resets the board*/
     printk(KERN_ALERT "Reseting the Game gameBoard\n");
     for (ii = 0; ii < 8; ii++) {
         for (jj = 0; jj < 8; jj++) {
@@ -81,6 +82,7 @@ static void resetBoard() {
         }
     }
 
+    /* if the player decides to be Red then the computer goes*/
     if (player == 'R') {
         playerTurn = false;
         computerTurn();
@@ -146,7 +148,24 @@ static void dropPiece(int col) {
 }
 
 static void checkWinCondition() {
+    int ii = 0, jj = 0;
+    bool tied = true;
     printk(KERN_INFO "Checking win condition");
+
+    /* TODO: Building win condition checking system*/
+
+    /* check for a tie condition*/
+    for (ii = 0; ii < 8; ii++) {
+        if (gameBoard[7][ii] == ZERO) {
+            tied = false;
+        }
+    }
+    if (tied == true) {
+        output = TIE;
+        outputLength = TIELENGTH;
+        gameStarted = false;
+        return;
+    }
 }
 
 static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
@@ -165,6 +184,7 @@ static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff
         return -EFAULT;
     }
 
+    /* print the board out other wise print out the other outputs*/
     if (output == *gameBoard) {
         for (ii = 0; ii < 8; ii++) {
             for (jj = 0; jj < 9; jj++) {
@@ -240,6 +260,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
 
     /* check for the reset command*/
     if (strncmp(input, "RESET", 5) == 0) {
+        /* Invaldi command was given*/
         if (input[5] != ' ') {
             printk(KERN_ERR "Invalid command\n");
             output = (char *)INVCMD;
@@ -247,6 +268,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             return count;
         }
 
+        /* Input validation for the color wanted by player*/
         if (input[6] != 'Y' && input[6] != 'R') {
             printk(KERN_ERR "Invalid argument for RESET\n");
             output = (char *)INVARG;
@@ -271,6 +293,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
 
     /* check for the drop piece command*/
     if (strncmp(input, "DROPC", 5) == 0) {
+        /* print invalid command if the */
         if (input[5] != ' ') {
             printk(KERN_ERR "Invalid command given\n");
             output = (char *)INVCMD;
@@ -278,6 +301,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             return count;
         }
 
+        /* Do input valid for the columns*/
         if (input[6] < 'A' || input[6] > 'H') {
             printk(KERN_ERR "Invalid argument given for DROPC\n");
             output = (char *)INVARG;
@@ -285,6 +309,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             return count;
         }
 
+        /* make sure that the game is started*/
         if (gameStarted == false) {
             printk(KERN_ERR "No game is in progress\n");
             output = (char *)NOGAME;
@@ -292,6 +317,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             return count;
         }
 
+        /* if not player turn then print error*/
         if (playerTurn == false) {
             printk(KERN_ERR "Not the players turn\n");
             output = (char *)OOT;
@@ -308,6 +334,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
 
     /* check the computer turn command*/
     if (strncmp(input, "CTURN\n", 6) == 0) {
+        /* if the game isnt started then output NOGAME*/
         if (gameStarted == false) {
             printk(KERN_ERR "No game is in progress\n");
             output = (char *)NOGAME;
@@ -315,12 +342,15 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             return count;
         }
         
+        /* if its the player turn then output error*/
         if (playerTurn == true) {
             printk(KERN_ERR "Not the computers turn\n");
             output = (char *)OOT;
             outputLength = OOTLENGTH;
             return count;
         }
+
+        /* computer takes its turn*/
         printk(KERN_INFO "Computer takes turn\n");
         computerTurn();
         checkWinCondition();
@@ -333,11 +363,12 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
 }
 
 static int __init fourinarow_init(void) {
+    /* Started the new device*/
     if (misc_register(&four_dev) < 0) {
         printk(KERN_ERR "Cannot acquire four in a row device\n");
         return -ENOENT;
     }
-
+    /* Initializing variables that are necessary for the program*/
     read = false;
     write = false;
     gameStarted = false;
