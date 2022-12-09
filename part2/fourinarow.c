@@ -27,21 +27,22 @@ const char *INVARG = "INVARG\n";
 const char *INVCOL = "INVCOL\n";
 const char *INVFAU = "EFAULT\n";
 const int INVLENGTH = 7;
+const char ZERO = '0';
 
 bool read = false;
 bool write = false;
 bool gameStarted = false;
-bool playerTurn = true;
+bool playerTurn = false;
 
-char *gameBoard[] = {
-    "00000000\n",
-    "00000000\n",
-    "00000000\n",
-    "00000000\n",
-    "00000000\n",
-    "00000000\n",
-    "00000000\n",
-    "00000000\n"
+char gameBoard[8][9] = {
+    {'0', '0', '0' ,'0', '0', '0', '0', '0', '\n'},
+    {'0', '0', '0' ,'0', '0', '0', '0', '0', '\n'},
+    {'0', '0', '0' ,'0', '0', '0', '0', '0', '\n'},
+    {'0', '0', '0' ,'0', '0', '0', '0', '0', '\n'},
+    {'0', '0', '0' ,'0', '0', '0', '0', '0', '\n'},
+    {'0', '0', '0' ,'0', '0', '0', '0', '0', '\n'},
+    {'0', '0', '0' ,'0', '0', '0', '0', '0', '\n'},
+    {'0', '0', '0' ,'0', '0', '0', '0', '0', '\n'}
 };
 char player = ' ';
 
@@ -51,8 +52,8 @@ int outputLength = 0;
 static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff_t *ppos);
 static ssize_t four_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos);
 static void resetBoard(void);
-static void computerTurn(char marker);
-static void dropPiece(char column);
+static void computerTurn(void);
+static void dropPiece(int col);
 static void checkWinCondition(void);
 static int __init fourinarow_init(void);
 static void __exit fourinarow_exit(void);
@@ -72,23 +73,27 @@ static struct miscdevice four_dev = {
 
 static void resetBoard() {
     int ii = 0, jj = 0;
+
     printk(KERN_ALERT "Reseting the Game gameBoard\n");
     for (ii = 0; ii < 8; ii++) {
         for (jj = 0; jj < 8; jj++) {
-            printk(KERN_INFO "ii: %d and jj: %d and char: %c", ii, jj, gameBoard[ii][jj]);
-            gameBoard[ii][jj] = (char)'0';
+            gameBoard[ii][jj] = ZERO;
         }
     }
-    gameStarted = true;
-    printk(KERN_INFO "Made it past the reseting\n");
+
     if (player == 'R') {
-        computerTurn('Y');
+        playerTurn = false;
+        computerTurn();
+    } else {
+        playerTurn = true;
     }
+
+    gameStarted = true;
     output = (char *)OK;
     outputLength = OKLENGTH;
 }
 
-static void computerTurn(char marker) {
+static void computerTurn() {
     int index = 0;
     bool placed = false;
 
@@ -105,7 +110,7 @@ static void computerTurn(char marker) {
         index %= 8;
 
         /* try to put it in that row if not available then try again until you can find something*/
-        dropPiece((char)('A' + index));
+        dropPiece(index);
 
         if (output == OK) {
             placed = true;
@@ -113,9 +118,8 @@ static void computerTurn(char marker) {
     }
 }
 
-static void dropPiece(char col) {
+static void dropPiece(int col) {
     int ii = 0;
-    int column = (int)(col - 'A');
 
     /* sets output to invalid column if nothing is found*/
     output = (char *)INVCOL;
@@ -123,13 +127,14 @@ static void dropPiece(char col) {
 
     /* check to see if the */
     while (ii < 8) {
-        if (gameBoard[column][ii] == '0') {
+        if (gameBoard[ii][col] == ZERO) {
             /* if a place is found we drop the piece*/
             if (player == 'R') {
-                gameBoard[column][ii] = (playerTurn ? 'R' : 'Y');
+                gameBoard[ii][col] = (playerTurn ? 'R' : 'Y');
             } else {
-                gameBoard[column][ii] = (playerTurn ? 'Y' : 'R');
+                gameBoard[ii][col] = (playerTurn ? 'Y' : 'R');
             }
+
             ii = 8;
             playerTurn = !playerTurn;
             output = (char*)OK;
@@ -249,6 +254,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             return count;
         }
 
+        /* set the player marker to R and reset the board*/
         printk(KERN_INFO "RESET command given\n");
         player = input[6];
         resetBoard();
@@ -256,8 +262,8 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
     }
 
     /* check for the gameBoard command*/
-    if (strncmp(input, "gameBOARD\n", 6) == 0) {
-        printk(KERN_INFO "gameBOARD command given\n");
+    if (strncmp(input, "BOARD\n", 6) == 0) {
+        printk(KERN_INFO "BOARD command given\n");
         output = *gameBoard;
         outputLength = 72;
         return count;
@@ -272,7 +278,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             return count;
         }
 
-        if (input[6] <= 'A' || input[6] >= 'H') {
+        if (input[6] < 'A' || input[6] > 'H') {
             printk(KERN_ERR "Invalid argument given for DROPC\n");
             output = (char *)INVARG;
             outputLength = INVLENGTH;
@@ -286,8 +292,16 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             return count;
         }
 
+        if (playerTurn == false) {
+            printk(KERN_ERR "Not the players turn\n");
+            output = (char *)OOT;
+            outputLength = OOTLENGTH;
+            return count;
+        }
+
+        /* Dropping the piece in the column*/
         printk(KERN_INFO "DROPC command was given\n");
-        dropPiece(input[6]);
+        dropPiece((int)(input[6] - 'A'));
         checkWinCondition();
         return count;
     }
@@ -300,13 +314,17 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             outputLength = NOGAMELENGTH;
             return count;
         }
-        printk(KERN_INFO "Computer takes turn\n");
-        if (player == 'R') {
-            computerTurn('Y');
-        } else {
-            computerTurn('R');
+        
+        if (playerTurn == true) {
+            printk(KERN_ERR "Not the computers turn\n");
+            output = (char *)OOT;
+            outputLength = OOTLENGTH;
+            return count;
         }
+        printk(KERN_INFO "Computer takes turn\n");
+        computerTurn();
         checkWinCondition();
+        return count;
     }
 
     output = (char *)INVCMD;
