@@ -148,11 +148,83 @@ static void dropPiece(int col) {
 }
 
 static void checkWinCondition() {
-    int ii = 0, jj = 0;
+    int ii = 0, jj = 0, kk = 0;
+    char winner = ' ';
     bool tied = true;
+    int row = 0;
     printk(KERN_INFO "Checking win condition");
 
     /* TODO: Building win condition checking system*/
+    for (ii = 0; ii < 8; ii++) {
+        for (jj = 0; jj < 5; jj++) {
+            /* check to the left*/
+            for (kk = 0; ii - kk >= 0 && kk < 4; kk++) {
+                if (gameBoard[ii][jj] == gameBoard[ii - kk][jj]) {
+                    row++;
+                }
+            }
+            if (row == 3) {
+                winner = gameBoard[ii][jj];
+            }
+            row = 0;
+
+            /* check to the left and down*/
+            for (kk = 0; ii - kk >= 0 && kk < 4; kk++) {
+                if (gameBoard[ii][jj] == gameBoard[ii - kk][jj + kk]) {
+                    row++;
+                }
+            }
+            if (row == 3) {
+                winner = gameBoard[ii][jj];
+            }
+            row = 0;
+
+            /* check downwards*/
+            for (kk = 0; kk < 4; kk++) {
+                if (gameBoard[ii][jj] == gameBoard[ii][jj + kk]) {
+                    row++;
+                }
+            }
+            if (row == 3) {
+                winner = gameBoard[ii][jj];
+            }
+            row = 0;
+
+            /* check down to the right*/
+            for (kk = 0; ii + kk < 8 && kk < 4; kk++) {
+                if (gameBoard[ii][jj] == gameBoard[ii + kk][jj + kk]) {
+                    row++;
+                }
+            }
+            if (row == 3) {
+                winner = gameBoard[ii][jj];
+            }
+            row = 0;
+
+            /* check to the right*/
+            for (kk = 0; ii + kk < 8 && kk < 4; kk++) {
+                if (gameBoard[ii][jj] == gameBoard[ii][jj + kk]) {
+                    row++;
+                }
+            }
+            if (row == 3) {
+                winner = gameBoard[ii][jj];
+            }
+        }
+    }
+
+    /* check to see if there is a winner*/
+    if (winner != ' ') {
+        if (winner == player) {
+            output = (char *)WIN;
+            outputLength = WINLENGTH;
+            return;
+        } else {
+            output = (char *)LOSE;
+            outputLength = LOSELENGTH;
+            return;
+        }
+    }
 
     /* check for a tie condition*/
     for (ii = 0; ii < 8; ii++) {
@@ -160,8 +232,10 @@ static void checkWinCondition() {
             tied = false;
         }
     }
+
+    /* check to see if the bottom row is full so call it tied*/
     if (tied == true) {
-        output = TIE;
+        output = (char *)TIE;
         outputLength = TIELENGTH;
         gameStarted = false;
         return;
