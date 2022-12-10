@@ -157,58 +157,66 @@ static void checkWinCondition() {
     /* TODO: Building win condition checking system*/
     for (ii = 0; ii < 8; ii++) {
         for (jj = 0; jj < 5; jj++) {
-            /* check to the left*/
-            for (kk = 0; ii - kk >= 0 && kk < 4; kk++) {
-                if (gameBoard[ii][jj] == gameBoard[ii - kk][jj]) {
-                    row++;
+            if (gameBoard[ii][jj] != '0') {
+                /* check to the left*/
+                row = 0;
+                for (kk = 0; ii - kk >= 0 && kk < 4; kk++) {
+                    if (gameBoard[ii][jj] == gameBoard[ii - kk][jj]) {
+                        row++;
+                    }
                 }
-            }
-            if (row == 3) {
-                winner = gameBoard[ii][jj];
-            }
-            row = 0;
+                if (row == 4) {
+                    printk(KERN_INFO "Winner found and set\n");
+                    winner = gameBoard[ii][jj];
+                }
 
-            /* check to the left and down*/
-            for (kk = 0; ii - kk >= 0 && kk < 4; kk++) {
-                if (gameBoard[ii][jj] == gameBoard[ii - kk][jj + kk]) {
-                    row++;
+                row = 0;
+                /* check to the left and down*/
+                for (kk = 0; ii - kk >= 0 && kk < 4; kk++) {
+                    if (gameBoard[ii][jj] == gameBoard[ii - kk][jj + kk]) {
+                        row++;
+                    }
                 }
-            }
-            if (row == 3) {
-                winner = gameBoard[ii][jj];
-            }
-            row = 0;
+                if (row == 4) {
+                    printk(KERN_INFO "Winner found and set\n");
+                    winner = gameBoard[ii][jj];
+                }
 
-            /* check downwards*/
-            for (kk = 0; kk < 4; kk++) {
-                if (gameBoard[ii][jj] == gameBoard[ii][jj + kk]) {
-                    row++;
+                row = 0;
+                /* check downwards*/
+                for (kk = 0; kk < 4; kk++) {
+                    if (gameBoard[ii][jj] == gameBoard[ii][jj + kk]) {
+                        row++;
+                    }
                 }
-            }
-            if (row == 3) {
-                winner = gameBoard[ii][jj];
-            }
-            row = 0;
+                if (row == 4) {
+                    printk(KERN_INFO "Winner found and set\n");
+                    winner = gameBoard[ii][jj];
+                }
 
-            /* check down to the right*/
-            for (kk = 0; ii + kk < 8 && kk < 4; kk++) {
-                if (gameBoard[ii][jj] == gameBoard[ii + kk][jj + kk]) {
-                    row++;
+                row = 0;
+                /* check down to the right*/
+                for (kk = 0; ii + kk < 8 && kk < 4; kk++) {
+                    if (gameBoard[ii][jj] == gameBoard[ii + kk][jj + kk]) {
+                        row++;
+                    }
                 }
-            }
-            if (row == 3) {
-                winner = gameBoard[ii][jj];
-            }
-            row = 0;
+                if (row == 4) {
+                    printk(KERN_INFO "Winner found and set\n");
+                    winner = gameBoard[ii][jj];
+                }
 
-            /* check to the right*/
-            for (kk = 0; ii + kk < 8 && kk < 4; kk++) {
-                if (gameBoard[ii][jj] == gameBoard[ii][jj + kk]) {
-                    row++;
+                row = 0;
+                /* check to the right*/
+                for (kk = 0; ii + kk < 8 && kk < 4; kk++) {
+                    if (gameBoard[ii][jj] == gameBoard[ii + kk][jj]) {
+                        row++;
+                    }
                 }
-            }
-            if (row == 3) {
-                winner = gameBoard[ii][jj];
+                if (row == 4) {
+                    printk(KERN_INFO "Winner found and set\n");
+                    winner = gameBoard[ii][jj];
+                }
             }
         }
     }
@@ -218,10 +226,12 @@ static void checkWinCondition() {
         if (winner == player) {
             output = (char *)WIN;
             outputLength = WINLENGTH;
+            gameStarted = false;
             return;
         } else {
             output = (char *)LOSE;
             outputLength = LOSELENGTH;
+            gameStarted = false;
             return;
         }
     }
