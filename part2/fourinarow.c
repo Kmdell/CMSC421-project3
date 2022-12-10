@@ -6,8 +6,11 @@
 #include <linux/miscdevice.h>
 #include <linux/string.h>
 #include <linux/random.h>
+#include <linux/mutex.h>
 
 MODULE_LICENSE("GPL");
+
+struct mutex kmutex;
 
 /* The constants of strings that we want to be able to edit*/
 const char *OK = "OK\n";
@@ -256,15 +259,18 @@ static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff
     int ii = 0, jj = 0, index = 0;
     char outputbuf[72];
     
+    mutex_lock(&kmutex);
     /* If the read variable is set to true then that means this was already run and finish its*/
     if (read == true) {
         read = false;
+        mutex_unlock(&kmutex);
         return 0;
     }
 
     /* Checks that the buffer is accessible*/
     if (!access_ok(buf, outputLength)) {
         printk(KERN_ERR "Could not access buffer for the reading\n");
+        mutex_unlock(&kmutex);
         return -EFAULT;
     }
 
@@ -281,6 +287,7 @@ static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff
         for (ii = 0; ii < outputLength; ii++) {
             if (put_user(outputbuf[ii], buf + ii)) {
                 printk(KERN_ERR "Failed to write to the read buffer\n");
+                mutex_unlock(&kmutex);
                 return -EFAULT;
             }
         }
@@ -289,6 +296,7 @@ static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff
         for (ii = 0; ii < outputLength; ii++) {
             if (put_user(output[ii], buf + ii)) {
                 printk(KERN_ERR "Failed to write to the read buffer\n");
+                mutex_unlock(&kmutex);
                 return -EFAULT;
             }
         }
@@ -296,17 +304,21 @@ static ssize_t four_read(struct file *file, char __user *buf, size_t count, loff
 
     /* Set to true so that we can stop the output*/
     read = true;
+    mutex_unlock(&kmutex);
     return outputLength;
 }
 
 static ssize_t four_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
     int ii = 0;
     char input[9];
+
+    mutex_lock(&kmutex);
     /* Handle newline*/
     printk("Count: %ld\n", count);
     if (write == true && count == 1) {
         printk(KERN_INFO "Handled the newline\n");
         write = false;
+        mutex_unlock(&kmutex);
         return count;
     }
         
@@ -315,6 +327,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         printk(KERN_ERR "Invalid length\n");
         output = (char *)INVCMD;
         outputLength = INVLENGTH;
+        mutex_unlock(&kmutex);
         return count;
     }
 
@@ -323,6 +336,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         printk(KERN_ERR "FAILED to access buffer\n");
         output = (char *)INVFAU;
         outputLength = INVLENGTH;
+        mutex_unlock(&kmutex);
         return count;
     }
 
@@ -332,6 +346,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "FAILED to read the the data from the userspace pointer\n");
             output = (char *)INVFAU;
             outputLength = INVLENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
     }
@@ -349,6 +364,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "Invalid command\n");
             output = (char *)INVCMD;
             outputLength = INVLENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
 
@@ -357,6 +373,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "Invalid argument for RESET\n");
             output = (char *)INVARG;
             outputLength = INVLENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
 
@@ -364,6 +381,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         printk(KERN_INFO "RESET command given\n");
         player = input[6];
         resetBoard();
+        mutex_unlock(&kmutex);
         return count;
     }
 
@@ -372,6 +390,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         printk(KERN_INFO "BOARD command given\n");
         output = *gameBoard;
         outputLength = 72;
+        mutex_unlock(&kmutex);
         return count;
     }
 
@@ -382,6 +401,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "Invalid command given\n");
             output = (char *)INVCMD;
             outputLength = INVLENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
 
@@ -390,6 +410,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "Invalid argument given for DROPC\n");
             output = (char *)INVARG;
             outputLength = INVLENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
 
@@ -398,6 +419,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "No game is in progress\n");
             output = (char *)NOGAME;
             outputLength = NOGAMELENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
 
@@ -406,6 +428,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "Not the players turn\n");
             output = (char *)OOT;
             outputLength = OOTLENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
 
@@ -413,6 +436,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         printk(KERN_INFO "DROPC command was given\n");
         dropPiece((int)(input[6] - 'A'));
         checkWinCondition();
+        mutex_unlock(&kmutex);
         return count;
     }
 
@@ -423,6 +447,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "No game is in progress\n");
             output = (char *)NOGAME;
             outputLength = NOGAMELENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
         
@@ -431,6 +456,7 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
             printk(KERN_ERR "Not the computers turn\n");
             output = (char *)OOT;
             outputLength = OOTLENGTH;
+            mutex_unlock(&kmutex);
             return count;
         }
 
@@ -438,18 +464,23 @@ static ssize_t four_write(struct file *file, const char __user *buf, size_t coun
         printk(KERN_INFO "Computer takes turn\n");
         computerTurn();
         checkWinCondition();
+        mutex_unlock(&kmutex);
         return count;
     }
 
     output = (char *)INVCMD;
     outputLength = INVLENGTH;
+    mutex_unlock(&kmutex);
     return count;
 }
 
 static int __init fourinarow_init(void) {
+    mutex_init(&kmutex);
+    mutex_lock(&kmutex);
     /* Started the new device*/
     if (misc_register(&four_dev) < 0) {
         printk(KERN_ERR "Cannot acquire four in a row device\n");
+        mutex_unlock(&kmutex);
         return -ENOENT;
     }
     /* Initializing variables that are necessary for the program*/
@@ -458,12 +489,15 @@ static int __init fourinarow_init(void) {
     gameStarted = false;
 
     printk(KERN_ALERT "Started the Four in a Row Machine\n");
+    mutex_unlock(&kmutex);
     return 0;
 }
 
 static void __exit fourinarow_exit(void) {
+    mutex_lock(&kmutex);
     misc_deregister(&four_dev);
     printk(KERN_ALERT "Shutting down the Four in the Row Machine\n");
+    mutex_unlock(&kmutex);
 }
 
 module_init(fourinarow_init);
